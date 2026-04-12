@@ -9,14 +9,20 @@ public class MainMenuController : MonoBehaviour
     [Tooltip("Имя игровой сцены в Build Settings")]
     public string gameSceneName = "SampleScene";
 
+    [Tooltip("Изображение фона главного меню (автоматически загружается 'BG' из Resources или перетащите вручную)")]
+    public Sprite backgroundSprite;
+
     private GameObject mainPanel;
     private GameObject settingsPanel;
     private TMP_Text   sensLabel;
+    private Slider     musicSlider;
+    private TMP_Text   musicValueLabel;
 
     const float SensMin = 20f, SensMax = 300f, SensDefault = 100f;
+    const float VolMin = 0f, VolMax = 100f;
 
     // ── палитра ──────────────────────────────────────────────────
-    static readonly Color C_BG       = new Color(0.04f, 0.03f, 0.07f);
+    static readonly Color C_BG       = new Color(212f/255f, 212f/255f, 212f/255f);
     static readonly Color C_Panel    = new Color(0.09f, 0.07f, 0.12f, 0.97f);
     static readonly Color C_Red      = new Color(0.72f, 0.10f, 0.10f);
     static readonly Color C_Title    = new Color(0.92f, 0.82f, 0.65f);
@@ -29,6 +35,12 @@ public class MainMenuController : MonoBehaviour
     // ── жизненный цикл ───────────────────────────────────────────
     void Awake()
     {
+        // Автоматически загружаем спрайт "BG" из папки Resources если не задан вручную
+        if (backgroundSprite == null)
+        {
+            backgroundSprite = Resources.Load<Sprite>("BG");
+        }
+
         // EventSystem ОБЯЗАТЕЛЕН — без него кнопки не работают
         if (FindObjectOfType<EventSystem>() == null)
         {
@@ -68,8 +80,8 @@ public class MainMenuController : MonoBehaviour
         sc.referenceResolution = new Vector2(1920, 1080);
         cGo.AddComponent<GraphicRaycaster>();
 
-        // Фон — НЕ перехватывает клики (raycastTarget = false)
-        DecoImg(cGo.transform, C_BG, fill: true);
+        // Фон
+        DecoImg(cGo.transform, Color.white, fill: true, backgroundSprite);
 
         // Тонкая красная полоска слева экрана
         var stripeGo = new GameObject("LeftStripe");
@@ -103,20 +115,20 @@ public class MainMenuController : MonoBehaviour
                 C_BtnNorm,  C_BtnHover);
 
         // ── ПАНЕЛЬ НАСТРОЕК ─────────────────────────────────────
-        settingsPanel = MakeCard(cGo.transform, new Vector2(460f, 360f));
+        settingsPanel = MakeCard(cGo.transform, new Vector2(500f, 500f));
         settingsPanel.SetActive(false);
 
         TopBar(settingsPanel.transform, C_Red);
         TxtLabel(settingsPanel.transform, "НАСТРОЙКИ", 34f, FontStyles.Bold,
-                 C_Title, new Vector2(0f, 120f), new Vector2(430f, 50f));
-        Divider(settingsPanel.transform, new Vector2(0f, 84f), 340f);
+                 C_Title, new Vector2(0f, 190f), new Vector2(430f, 50f));
+        Divider(settingsPanel.transform, new Vector2(0f, 154f), 340f);
 
         TxtLabel(settingsPanel.transform, "Чувствительность мыши",
                  16f, FontStyles.Normal, new Color(0.65f, 0.60f, 0.55f),
-                 new Vector2(0f, 50f), new Vector2(430f, 28f));
+                 new Vector2(0f, 120f), new Vector2(430f, 28f));
 
         float saved = PlayerPrefs.GetFloat("MouseSensitivity", SensDefault);
-        var slider  = MakeSlider(settingsPanel.transform, new Vector2(0f, 8f), SensMin, SensMax, saved);
+        var slider  = MakeSlider(settingsPanel.transform, new Vector2(0f, 78f), SensMin, SensMax, saved);
         slider.onValueChanged.AddListener(OnSensChanged);
 
         // Числовое значение
@@ -131,9 +143,34 @@ public class MainMenuController : MonoBehaviour
         var vRt = vGo.GetComponent<RectTransform>();
         vRt.anchorMin = vRt.anchorMax = new Vector2(0.5f, 0.5f);
         vRt.sizeDelta        = new Vector2(80f, 28f);
-        vRt.anchoredPosition = new Vector2(0f, -30f);
+        vRt.anchoredPosition = new Vector2(0f, 40f);
 
-        MakeBtn(settingsPanel.transform, "←   НАЗАД", new Vector2(0f, -108f), OnBack,
+        Divider(settingsPanel.transform, new Vector2(0f, 20f), 340f);
+
+        // Громкость музыки
+        TxtLabel(settingsPanel.transform, "Громкость музыки",
+                 16f, FontStyles.Normal, new Color(0.65f, 0.60f, 0.55f),
+                 new Vector2(0f, -42f), new Vector2(430f, 28f));
+
+        float savedMusic = PlayerPrefs.GetFloat("MusicVolume", 0.5f) * 100f;
+        musicSlider = MakeSlider(settingsPanel.transform, new Vector2(0f, -84f), VolMin, VolMax, savedMusic);
+        musicSlider.onValueChanged.AddListener(OnMusicVolumeChanged);
+
+        // Числовое значение громкости
+        var mvGo = new GameObject("MusicVal");
+        mvGo.transform.SetParent(settingsPanel.transform, false);
+        musicValueLabel           = mvGo.AddComponent<TextMeshProUGUI>();
+        musicValueLabel.text      = Mathf.RoundToInt(savedMusic).ToString();
+        musicValueLabel.fontSize  = 17f;
+        musicValueLabel.alignment = TextAlignmentOptions.Center;
+        musicValueLabel.color     = new Color(0.65f, 0.20f, 0.20f);
+        musicValueLabel.raycastTarget = false;
+        var mvRt = mvGo.GetComponent<RectTransform>();
+        mvRt.anchorMin = mvRt.anchorMax = new Vector2(0.5f, 0.5f);
+        mvRt.sizeDelta        = new Vector2(80f, 28f);
+        mvRt.anchoredPosition = new Vector2(0f, -124f);
+
+        MakeBtn(settingsPanel.transform, "←   НАЗАД", new Vector2(0f, -200f), OnBack,
                 C_BtnNorm, C_BtnHover);
     }
 
@@ -147,6 +184,30 @@ public class MainMenuController : MonoBehaviour
         PlayerPrefs.SetFloat("MouseSensitivity", v);
         PlayerPrefs.Save();
         if (sensLabel) sensLabel.text = Mathf.RoundToInt(v).ToString();
+    }
+
+    void OnMusicVolumeChanged(float v)
+    {
+        float volume = v / 100f;
+        PlayerPrefs.SetFloat("MusicVolume", volume);
+        PlayerPrefs.Save();
+        if (musicValueLabel) musicValueLabel.text = Mathf.RoundToInt(v).ToString();
+
+        // Применить громкость через AudioManager или напрямую
+        var am = FindObjectOfType<AudioManager>();
+        if (am != null)
+        {
+            am.SetMusicVolume(volume);
+        }
+        else
+        {
+            // Если AudioManager нет, применить напрямую к камере
+            var mainCamera = Camera.main;
+            if (mainCamera != null && mainCamera.TryGetComponent<AudioSource>(out var audioSource))
+            {
+                audioSource.volume = volume;
+            }
+        }
     }
 
     // ── строители элементов ──────────────────────────────────────
@@ -336,13 +397,18 @@ public class MainMenuController : MonoBehaviour
     }
 
     // Декоративный Image — raycastTarget = false чтобы не блокировал клики
-    static void DecoImg(Transform parent, Color color, bool fill = false)
+    static void DecoImg(Transform parent, Color color, bool fill = false, Sprite sprite = null)
     {
         var go = new GameObject("Deco");
         go.transform.SetParent(parent, false);
         var img = go.AddComponent<Image>();
-        img.color         = color;
+        img.color         = sprite != null ? Color.white : color;
         img.raycastTarget = false;
+        if (sprite != null)
+        {
+            img.sprite = sprite;
+            img.type = Image.Type.Sliced;
+        }
         if (fill)
         {
             var rt = go.GetComponent<RectTransform>();

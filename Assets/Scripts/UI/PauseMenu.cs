@@ -21,8 +21,11 @@ public class PauseMenu : MonoBehaviour
     private GameObject pausePanel;
     private GameObject settingsPanel;
     private TMP_Text   sensValueLabel;
+    private Slider     musicSlider;
+    private TMP_Text   musicValueLabel;
 
     const float SensMin = 20f, SensMax = 300f, SensDefault = 100f;
+    const float VolMin = 0f, VolMax = 100f;
 
     // ── палитра ──────────────────────────────────────────────────
     static readonly Color C_Overlay  = new Color(0f,    0f,    0f,    0.65f);
@@ -152,8 +155,32 @@ public class PauseMenu : MonoBehaviour
         svRt.sizeDelta        = new Vector2(80f, 26f);
         svRt.anchoredPosition = new Vector2(0f, -30f);
 
+        Divider(settingsPanel.transform, new Vector2(0f, -50f), 320f);
+
+        // Громкость музыки
+        TxtLbl(settingsPanel.transform, "Громкость музыки",
+               16f, FontStyles.Normal, C_Sub, new Vector2(0f, -78f), new Vector2(390f, 26f));
+
+        float savedMusic = PlayerPrefs.GetFloat("MusicVolume", 0.5f) * 100f;
+        musicSlider = MakeSlider(settingsPanel.transform, new Vector2(0f, -100f), VolMin, VolMax, savedMusic);
+        musicSlider.onValueChanged.AddListener(OnMusicVolumeChanged);
+
+        // числовое значение громкости
+        var mvGo = new GameObject("MusicVal");
+        mvGo.transform.SetParent(settingsPanel.transform, false);
+        musicValueLabel           = mvGo.AddComponent<TextMeshProUGUI>();
+        musicValueLabel.text      = Mathf.RoundToInt(savedMusic).ToString();
+        musicValueLabel.fontSize  = 16f;
+        musicValueLabel.alignment = TextAlignmentOptions.Center;
+        musicValueLabel.color     = new Color(0.65f, 0.20f, 0.20f);
+        musicValueLabel.raycastTarget = false;
+        var mvRt = mvGo.GetComponent<RectTransform>();
+        mvRt.anchorMin = mvRt.anchorMax = new Vector2(0.5f, 0.5f);
+        mvRt.sizeDelta        = new Vector2(80f, 26f);
+        mvRt.anchoredPosition = new Vector2(0f, -124f);
+
         MakeBtn(settingsPanel.transform, "←   НАЗАД",
-                new Vector2(0f, -96f), OnCloseSettings, C_BtnNorm, C_BtnHover);
+                new Vector2(0f, -156f), OnCloseSettings, C_BtnNorm, C_BtnHover);
     }
 
     // ── обработчики ──────────────────────────────────────────────
@@ -190,6 +217,30 @@ public class PauseMenu : MonoBehaviour
         // Применяем сразу, без перезапуска
         var cc = FindObjectOfType<CameraController>();
         if (cc != null) cc.mouseSensitivity = v;
+    }
+
+    void OnMusicVolumeChanged(float v)
+    {
+        float volume = v / 100f;
+        PlayerPrefs.SetFloat("MusicVolume", volume);
+        PlayerPrefs.Save();
+        if (musicValueLabel) musicValueLabel.text = Mathf.RoundToInt(v).ToString();
+
+        // Применить громкость через AudioManager или напрямую
+        var am = FindObjectOfType<AudioManager>();
+        if (am != null)
+        {
+            am.SetMusicVolume(volume);
+        }
+        else
+        {
+            // Если AudioManager нет, применить напрямую к камере
+            var mainCamera = Camera.main;
+            if (mainCamera != null && mainCamera.TryGetComponent<AudioSource>(out var audioSource))
+            {
+                audioSource.volume = volume;
+            }
+        }
     }
 
     // ── строители ────────────────────────────────────────────────

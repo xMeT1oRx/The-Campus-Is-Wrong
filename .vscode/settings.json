@@ -56,5 +56,5 @@
         "temp/": true,
         "Temp/": true
     },
-    "dotnet.defaultSolution": "The Campus Is Wrong.sln"
+    "dotnet.defaultSolution": "The-Campus-Is-Wrong.sln"
 }
